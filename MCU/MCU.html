@@ -1,0 +1,2502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.A.R.V.I.S / F.R.I.D.A.Y. Interface</title>
+    <!-- TensorFlow.js for object detection -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+    <!-- Face-api.js for face recognition -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <!-- Tesseract.js for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+    <style>
+        :root {
+            --jarvis-blue: #00aaff;
+            --jarvis-dark: #050510;
+            --jarvis-gold: #ffd700;
+            --hud-green: #00ffaa;
+            --alert-red: #ff3b30;
+            --hud-bg: rgba(0, 20, 40, 0.8);
+            --hud-text: rgba(0, 255, 170, 0.8);
+            --hud-border: rgba(0, 170, 255, 0.3);
+            --friday-purple: #9c27b0;
+            --friday-pink: #e91e63;
+            --friday-dark: #1a001a;
+            --friday-bg: rgba(26, 0, 26, 0.8);
+            --friday-text: rgba(255, 200, 255, 0.9);
+            --friday-border: rgba(170, 0, 255, 0.3);
+            --circuit-color: rgba(156, 39, 176, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Agency FB', 'Arial Narrow', Arial, sans-serif;
+        }
+
+        body {
+            background-color: black;
+            color: var(--hud-text);
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        body.friday-mode {
+            background-color: var(--friday-dark);
+            color: var(--friday-text);
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(156, 39, 176, 0.1) 0%, transparent 30%),
+                radial-gradient(circle at 80% 70%, rgba(233, 30, 99, 0.1) 0%, transparent 30%);
+        }
+
+        .hud-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            background: 
+                radial-gradient(circle at center, transparent 0%, rgba(0, 50, 100, 0.1) 100%),
+                repeating-linear-gradient(0deg, rgba(0, 100, 255, 0.1) 0px, rgba(0, 100, 255, 0.1) 1px, transparent 1px, transparent 2px),
+                repeating-linear-gradient(90deg, rgba(0, 100, 255, 0.1) 0px, rgba(0, 100, 255, 0.1) 1px, transparent 1px, transparent 2px);
+            z-index: 10;
+        }
+
+        body.friday-mode .hud-overlay {
+            background: 
+                radial-gradient(circle at center, transparent 0%, rgba(50, 0, 50, 0.2) 100%),
+                repeating-linear-gradient(0deg, rgba(156, 39, 176, 0.1) 0px, rgba(156, 39, 176, 0.1) 1px, transparent 1px, transparent 2px),
+                repeating-linear-gradient(90deg, rgba(233, 30, 99, 0.1) 0px, rgba(233, 30, 99, 0.1) 1px, transparent 1px, transparent 2px);
+        }
+
+        .hud-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(to right, var(--hud-border) 1px, transparent 1px),
+                linear-gradient(to bottom, var(--hud-border) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: 1;
+            opacity: 0.3;
+        }
+
+        body.friday-mode .hud-grid {
+            background-image: 
+                linear-gradient(to right, var(--friday-border) 1px, transparent 1px),
+                linear-gradient(to bottom, var(--friday-border) 1px, transparent 1px);
+            opacity: 0.5;
+        }
+
+        /* Circuit Board Background */
+        .circuit-board {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+
+        body.friday-mode .circuit-board {
+            opacity: 0.3;
+        }
+
+        /* Neural Network Visualization */
+        .neural-network {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+
+        body.friday-mode .neural-network {
+            opacity: 0.2;
+        }
+
+        .neural-node {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--friday-pink);
+            box-shadow: 0 0 5px var(--friday-pink);
+            transform: scale(1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .neural-connection {
+            position: absolute;
+            height: 1px;
+            background-color: var(--friday-purple);
+            transform-origin: left center;
+            opacity: 0.3;
+        }
+
+        /* Holographic Effects */
+        .holographic {
+            position: relative;
+            box-shadow: 0 0 15px rgba(156, 39, 176, 0.3);
+            transition: all 0.3s;
+        }
+
+        .holographic::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            border: 1px solid var(--friday-pink);
+            border-radius: inherit;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .holographic:hover::before {
+            opacity: 0.5;
+        }
+
+        body.friday-mode .holographic {
+            box-shadow: 0 0 15px rgba(156, 39, 176, 0.5);
+        }
+
+        /* Hex Grid */
+        .hex-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><polygon points="50,0 93.3,25 93.3,75 50,100 6.7,75 6.7,25" fill="none" stroke="%239c27b0" stroke-width="0.5"/></svg>');
+            background-size: 50px 50px;
+        }
+
+        body.friday-mode .hex-grid {
+            opacity: 0.1;
+        }
+
+        /* Particle System */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            border-radius: 50%;
+            background-color: var(--friday-pink);
+            opacity: 0.5;
+        }
+
+        /* HUD Display */
+        .hud-display {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            z-index: 2;
+        }
+
+        .hud-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            border-bottom: 1px solid var(--hud-border);
+            margin-bottom: 10px;
+        }
+
+        body.friday-mode .hud-header {
+            border-bottom-color: var(--friday-border);
+            background: linear-gradient(90deg, rgba(156, 39, 176, 0.1), rgba(233, 30, 99, 0.1));
+        }
+
+        .hud-title {
+            font-size: 18px;
+            letter-spacing: 2px;
+            color: var(--jarvis-blue);
+            text-shadow: 0 0 10px var(--jarvis-blue);
+        }
+
+        body.friday-mode .hud-title {
+            color: var(--friday-pink);
+            text-shadow: 0 0 10px var(--friday-purple);
+        }
+
+        .hud-status {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+        }
+
+        .hud-status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--hud-green);
+            box-shadow: 0 0 5px var(--hud-green);
+        }
+
+        body.friday-mode .status-indicator {
+            background-color: var(--friday-pink);
+            box-shadow: 0 0 5px var(--friday-purple);
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        .video-section {
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            border: 2px solid var(--hud-border);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 170, 255, 0.2);
+        }
+
+        body.friday-mode .video-container {
+            border-color: var(--friday-border);
+            box-shadow: 0 0 20px rgba(156, 39, 176, 0.3);
+        }
+
+        .video-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(0, 170, 255, 0.1) 0%, transparent 50%, rgba(0, 170, 255, 0.1) 100%);
+            z-index: 2;
+        }
+
+        body.friday-mode .video-container::before {
+            background: linear-gradient(135deg, rgba(156, 39, 176, 0.2) 0%, transparent 50%, rgba(233, 30, 99, 0.2) 100%);
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background-color: var(--jarvis-dark);
+            transform: scaleX(-1);
+            object-fit: cover;
+        }
+
+        body.friday-mode video {
+            background-color: var(--friday-dark);
+        }
+
+        .video-label {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: var(--hud-text);
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            z-index: 3;
+        }
+
+        body.friday-mode .video-label {
+            color: var(--friday-text);
+            background-color: rgba(26, 0, 26, 0.7);
+        }
+
+        .object-detection-box {
+            position: absolute;
+            border: 2px solid var(--hud-green);
+            background-color: rgba(0, 255, 170, 0.2);
+            font-size: 10px;
+            color: white;
+            padding: 2px;
+            z-index: 4;
+        }
+
+        body.friday-mode .object-detection-box {
+            border-color: var(--friday-pink);
+            background-color: rgba(233, 30, 99, 0.2);
+        }
+
+        .face-detection-box {
+            position: absolute;
+            border: 2px solid var(--jarvis-blue);
+            background-color: rgba(0, 170, 255, 0.2);
+            font-size: 10px;
+            color: white;
+            padding: 2px;
+            z-index: 4;
+        }
+
+        body.friday-mode .face-detection-box {
+            border-color: var(--friday-purple);
+            background-color: rgba(156, 39, 176, 0.2);
+        }
+
+        .hud-data {
+            flex: 1;
+            background-color: var(--hud-bg);
+            border: 1px solid var(--hud-border);
+            border-radius: 6px;
+            padding: 10px;
+            box-shadow: 0 0 15px rgba(0, 170, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        body.friday-mode .hud-data {
+            background-color: var(--friday-bg);
+            border-color: var(--friday-border);
+            box-shadow: 0 0 15px rgba(156, 39, 176, 0.2);
+        }
+
+        .data-title {
+            font-size: 14px;
+            color: var(--jarvis-blue);
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--hud-border);
+            padding-bottom: 3px;
+        }
+
+        body.friday-mode .data-title {
+            color: var(--friday-pink);
+            border-bottom-color: var(--friday-border);
+            text-shadow: 0 0 5px var(--friday-purple);
+        }
+
+        .data-item {
+            margin-bottom: 6px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .data-value {
+            color: var(--hud-green);
+        }
+
+        body.friday-mode .data-value {
+            color: var(--friday-pink);
+            text-shadow: 0 0 5px var(--friday-purple);
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--hud-border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        body.friday-mode .chat-container {
+            border-color: var(--friday-border);
+            box-shadow: 0 0 10px rgba(156, 39, 176, 0.2);
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            background-color: rgba(0, 10, 20, 0.6);
+            scrollbar-width: thin;
+            scrollbar-color: var(--jarvis-blue) transparent;
+        }
+
+        body.friday-mode .chat-messages {
+            background-color: rgba(26, 0, 26, 0.6);
+            scrollbar-color: var(--friday-purple) transparent;
+        }
+
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background-color: var(--jarvis-blue);
+            border-radius: 3px;
+        }
+
+        body.friday-mode .chat-messages::-webkit-scrollbar-thumb {
+            background-color: var(--friday-purple);
+        }
+
+        .message {
+            margin-bottom: 8px;
+            font-size: 12px;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .user-message {
+            color: var(--hud-text);
+        }
+
+        body.friday-mode .user-message {
+            color: var(--friday-text);
+        }
+
+        .jarvis-message {
+            color: var(--jarvis-blue);
+        }
+
+        body.friday-mode .jarvis-message {
+            color: var(--friday-pink);
+            text-shadow: 0 0 3px var(--friday-purple);
+        }
+
+        .chat-input {
+            display: flex;
+            padding: 8px;
+            background-color: rgba(0, 20, 40, 0.8);
+            border-top: 1px solid var(--hud-border);
+        }
+
+        body.friday-mode .chat-input {
+            background-color: rgba(26, 0, 26, 0.8);
+            border-top-color: var(--friday-border);
+        }
+
+        .chat-input input {
+            flex: 1;
+            background-color: rgba(0, 10, 20, 0.8);
+            border: 1px solid var(--hud-border);
+            color: var(--hud-text);
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            outline: none;
+        }
+
+        body.friday-mode .chat-input input {
+            background-color: rgba(26, 0, 26, 0.8);
+            border-color: var(--friday-border);
+            color: var(--friday-text);
+        }
+
+        .chat-input input:focus {
+            border-color: var(--jarvis-blue);
+            box-shadow: 0 0 5px var(--jarvis-blue);
+        }
+
+        body.friday-mode .chat-input input:focus {
+            border-color: var(--friday-pink);
+            box-shadow: 0 0 5px var(--friday-purple);
+        }
+
+        .chat-input button {
+            background-color: rgba(0, 170, 255, 0.2);
+            border: 1px solid var(--hud-border);
+            color: var(--hud-text);
+            padding: 6px 12px;
+            margin-left: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        body.friday-mode .chat-input button {
+            background-color: rgba(156, 39, 176, 0.2);
+            border-color: var(--friday-border);
+            color: var(--friday-text);
+        }
+
+        .chat-input button:hover {
+            background-color: rgba(0, 170, 255, 0.4);
+        }
+
+        body.friday-mode .chat-input button:hover {
+            background-color: rgba(156, 39, 176, 0.4);
+        }
+
+        .hud-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 10px;
+            padding: 10px;
+        }
+
+        .control-button {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: rgba(0, 170, 255, 0.1);
+            border: 1px solid var(--hud-border);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        body.friday-mode .control-button {
+            background-color: rgba(156, 39, 176, 0.1);
+            border-color: var(--friday-border);
+            color: var(--friday-text);
+        }
+
+        .control-button::after {
+            content: attr(data-label);
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: var(--hud-text);
+            white-space: nowrap;
+        }
+
+        body.friday-mode .control-button::after {
+            color: var(--friday-text);
+        }
+
+        .control-button:hover {
+            background-color: rgba(0, 170, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        body.friday-mode .control-button:hover {
+            background-color: rgba(156, 39, 176, 0.3);
+        }
+
+        .control-button.active {
+            background-color: var(--jarvis-blue);
+            box-shadow: 0 0 10px var(--jarvis-blue);
+        }
+
+        body.friday-mode .control-button.active {
+            background-color: var(--friday-purple);
+            box-shadow: 0 0 10px var(--friday-purple);
+        }
+
+        .control-button.end-call {
+            background-color: rgba(255, 59, 48, 0.2);
+            border-color: var(--alert-red);
+        }
+
+        .control-button.end-call:hover {
+            background-color: rgba(255, 59, 48, 0.4);
+        }
+
+        .control-button.end-call.active {
+            background-color: var(--alert-red);
+            box-shadow: 0 0 10px var(--alert-red);
+        }
+
+        .voice-indicator {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 8px 15px;
+            border-radius: 15px;
+            border: 1px solid var(--jarvis-blue);
+            box-shadow: 0 0 15px rgba(0, 170, 255, 0.3);
+            z-index: 100;
+        }
+
+        body.friday-mode .voice-indicator {
+            border-color: var(--friday-purple);
+            box-shadow: 0 0 15px rgba(156, 39, 176, 0.3);
+            background-color: rgba(26, 0, 26, 0.7);
+        }
+
+        .voice-indicator.active {
+            display: flex;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--jarvis-blue);
+            animation: pulse 1.5s infinite;
+        }
+
+        body.friday-mode .pulse-dot {
+            background-color: var(--friday-pink);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .voice-text {
+            font-size: 12px;
+        }
+
+        body.friday-mode .voice-text {
+            color: var(--friday-text);
+        }
+
+        .hud-response {
+            position: fixed;
+            bottom: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: 500px;
+            width: 80%;
+            background-color: var(--hud-bg);
+            border: 1px solid var(--hud-border);
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 170, 255, 0.2);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 5;
+        }
+
+        body.friday-mode .hud-response {
+            background-color: var(--friday-bg);
+            border-color: var(--friday-border);
+            box-shadow: 0 0 20px rgba(156, 39, 176, 0.3);
+        }
+
+        .hud-response.show {
+            opacity: 1;
+        }
+
+        .response-text {
+            font-size: 14px;
+            color: var(--hud-text);
+        }
+
+        body.friday-mode .response-text {
+            color: var(--friday-text);
+        }
+
+        .response-text .jarvis {
+            color: var(--jarvis-blue);
+            font-weight: bold;
+        }
+
+        body.friday-mode .response-text .jarvis {
+            color: var(--friday-pink);
+            text-shadow: 0 0 5px var(--friday-purple);
+        }
+
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(to bottom, transparent 0%, var(--jarvis-blue) 50%, transparent 100%);
+            z-index: 20;
+            animation: scan 8s linear infinite;
+            opacity: 0.3;
+        }
+
+        body.friday-mode .scanline {
+            background: linear-gradient(to bottom, transparent 0%, var(--friday-pink) 50%, transparent 100%);
+        }
+
+        @keyframes scan {
+            0% { top: -100%; }
+            100% { top: 100%; }
+        }
+
+        /* Full Video Mode Styles */
+        .full-video-mode {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body.friday-mode .full-video-mode {
+            background-color: rgba(26, 0, 26, 0.9);
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(156, 39, 176, 0.2) 0%, transparent 30%),
+                radial-gradient(circle at 80% 70%, rgba(233, 30, 99, 0.2) 0%, transparent 30%);
+        }
+
+        .full-video-mode.active {
+            display: flex;
+        }
+
+        .full-video-container {
+            width: 80vmin;
+            height: 80vmin;
+            max-width: 600px;
+            max-height: 600px;
+            position: relative;
+            border: 2px solid var(--jarvis-blue);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 170, 255, 0.5);
+        }
+
+        body.friday-mode .full-video-container {
+            border-color: var(--friday-pink);
+            box-shadow: 0 0 30px rgba(156, 39, 176, 0.6);
+        }
+
+        .full-video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            transform: scaleX(-1);
+        }
+
+        .speech-textbox {
+            width: 80vmin;
+            max-width: 600px;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: rgba(0, 20, 40, 0.8);
+            border: 1px solid var(--jarvis-blue);
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            text-align: center;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body.friday-mode .speech-textbox {
+            background-color: rgba(26, 0, 26, 0.8);
+            border-color: var(--friday-pink);
+            color: var(--friday-text);
+            text-shadow: 0 0 3px var(--friday-purple);
+        }
+
+        .close-full-video {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(255, 59, 48, 0.2);
+            border: 1px solid var(--alert-red);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        .close-full-video:hover {
+            background-color: rgba(255, 59, 48, 0.4);
+        }
+
+        /* Arc Reactor */
+        .arc-reactor {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--jarvis-blue) 0%, transparent 70%);
+            box-shadow: 0 0 20px var(--jarvis-blue);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 15;
+            animation: reactor-pulse 2s infinite alternate;
+        }
+
+        body.friday-mode .arc-reactor {
+            background: radial-gradient(circle, var(--friday-purple) 0%, transparent 70%);
+            box-shadow: 0 0 20px var(--friday-purple);
+        }
+
+        .arc-reactor-core {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: white;
+            box-shadow: 0 0 10px white;
+        }
+
+        @keyframes reactor-pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(1.1); opacity: 1; }
+        }
+
+        /* Environmental Sensors */
+        .environment-panel {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background-color: var(--hud-bg);
+            border: 1px solid var(--hud-border);
+            border-radius: 6px;
+            padding: 10px;
+            display: none;
+            z-index: 15;
+        }
+
+        body.friday-mode .environment-panel {
+            background-color: var(--friday-bg);
+            border-color: var(--friday-border);
+            box-shadow: 0 0 15px rgba(156, 39, 176, 0.3);
+        }
+
+        .environment-panel.active {
+            display: block;
+        }
+
+        /* Biometric Display */
+        .biometric-display {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: var(--hud-bg);
+            border: 1px solid var(--hud-border);
+            border-radius: 6px;
+            padding: 10px;
+            display: none;
+            z-index: 15;
+        }
+
+        body.friday-mode .biometric-display {
+            background-color: var(--friday-bg);
+            border-color: var(--friday-border);
+            box-shadow: 0 0 15px rgba(156, 39, 176, 0.3);
+        }
+
+        .biometric-display.active {
+            display: block;
+        }
+
+        .biometric-graph {
+            width: 200px;
+            height: 60px;
+            margin-top: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .graph-line {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: var(--hud-green);
+        }
+
+        body.friday-mode .graph-line {
+            background-color: var(--friday-pink);
+        }
+
+        /* Gesture Area */
+        .gesture-area {
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            width: 100px;
+            height: 100px;
+            border: 1px dashed var(--hud-border);
+            border-radius: 50%;
+            display: none;
+            z-index: 15;
+            justify-content: center;
+            align-items: center;
+            color: var(--hud-text);
+            font-size: 12px;
+            text-align: center;
+            opacity: 0.7;
+        }
+
+        body.friday-mode .gesture-area {
+            border-color: var(--friday-border);
+            color: var(--friday-text);
+        }
+
+        .gesture-area.active {
+            display: flex;
+        }
+
+        /* Emergency Mode */
+        body.emergency-mode {
+            animation: emergency-pulse 1s infinite alternate;
+        }
+
+        @keyframes emergency-pulse {
+            0% { background-color: rgba(255, 0, 0, 0.05); }
+            100% { background-color: rgba(255, 0, 0, 0.15); }
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--jarvis-dark);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            color: var(--jarvis-blue);
+            font-size: 24px;
+            text-align: center;
+        }
+
+        body.friday-mode .loading-screen {
+            background-color: var(--friday-dark);
+            color: var(--friday-pink);
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(0, 170, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--jarvis-blue);
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+
+        body.friday-mode .loading-spinner {
+            border-color: rgba(156, 39, 176, 0.3);
+            border-top-color: var(--friday-pink);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .video-section {
+                width: 100%;
+            }
+            
+            .full-video-container {
+                width: 95vmin;
+                height: 95vmin;
+                max-width: 95vw;
+                max-height: 95vw;
+            }
+            
+            .speech-textbox {
+                width: 95vmin;
+                max-width: 95vw;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loading-screen">
+        <div class="loading-spinner"></div>
+        <div>INITIALIZING SYSTEMS...</div>
+        <div id="loading-progress">Loading AI models: 0%</div>
+    </div>
+
+    <div class="hud-grid"></div>
+    <div class="hex-grid"></div>
+    <div class="circuit-board" id="circuit-board"></div>
+    <div class="neural-network" id="neural-network"></div>
+    <div class="particles" id="particles"></div>
+    <div class="hud-overlay"></div>
+    <div class="scanline"></div>
+
+    <!-- Arc Reactor -->
+    <div class="arc-reactor" id="arc-reactor">
+        <div class="arc-reactor-core"></div>
+    </div>
+
+    <!-- Environmental Sensors -->
+    <div class="environment-panel" id="environment-panel">
+        <div class="data-title">ENVIRONMENTAL DATA</div>
+        <div class="data-item">
+            <span>LOCATION:</span>
+            <span class="data-value" id="gps-location">--</span>
+        </div>
+        <div class="data-item">
+            <span>TEMPERATURE:</span>
+            <span class="data-value" id="temperature">--</span>
+        </div>
+        <div class="data-item">
+            <span>WEATHER:</span>
+            <span class="data-value" id="weather">--</span>
+        </div>
+        <div class="data-item">
+            <span>PRESSURE:</span>
+            <span class="data-value" id="pressure">--</span>
+        </div>
+        <div class="data-item">
+            <span>WIND SPEED:</span>
+            <span class="data-value" id="wind-speed">--</span>
+        </div>
+    </div>
+
+    <!-- Biometric Display -->
+    <div class="biometric-display" id="biometric-display">
+        <div class="data-title">BIOMETRIC DATA</div>
+        <div class="data-item">
+            <span>HEART RATE:</span>
+            <span class="data-value" id="heart-rate">--</span>
+        </div>
+        <div class="data-item">
+            <span>STRESS LEVEL:</span>
+            <span class="data-value" id="stress-level">--</span>
+        </div>
+        <div class="biometric-graph">
+            <div class="graph-line" id="heart-rate-graph"></div>
+        </div>
+    </div>
+
+    <!-- Gesture Area -->
+    <div class="gesture-area" id="gesture-area">
+        GESTURE CONTROL AREA
+    </div>
+
+    <!-- Main HUD Interface -->
+    <div class="hud-display">
+        <div class="hud-header">
+            <div class="hud-title">J.A.R.V.I.S. ADVANCED INTERFACE</div>
+            <div class="hud-status">
+                <div class="hud-status-item">
+                    <div class="status-indicator"></div>
+                    <span>SYSTEMS ONLINE</span>
+                </div>
+                <div class="hud-status-item">
+                    <div class="status-indicator"></div>
+                    <span id="time-display">00:00:00</span>
+                </div>
+                <div class="hud-status-item">
+                    <div class="status-indicator"></div>
+                    <span>POWER 100%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="video-section">
+                <div class="video-container">
+                    <video id="user-video" autoplay muted></video>
+                    <div class="video-label">USER FEED</div>
+                </div>
+
+                <div class="hud-data">
+                    <div class="data-title">SYSTEM STATUS</div>
+                    <div class="data-item">
+                        <span>AI CORE:</span>
+                        <span class="data-value">ONLINE</span>
+                    </div>
+                    <div class="data-item">
+                        <span>VOICE RECOGNITION:</span>
+                        <span class="data-value" id="voice-status">ACTIVE</span>
+                    </div>
+                    <div class="data-item">
+                        <span>OBJECT DETECTION:</span>
+                        <span class="data-value" id="object-detection-status">LOADING</span>
+                    </div>
+                    <div class="data-item">
+                        <span>FACE RECOGNITION:</span>
+                        <span class="data-value" id="face-recognition-status">LOADING</span>
+                    </div>
+                    <div class="data-item">
+                        <span>LAST UPDATE:</span>
+                        <span class="data-value" id="date-display">2023-01-01</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-container">
+                <div class="chat-messages" id="chat-messages">
+                    <div class="message jarvis-message">J.A.R.V.I.S.: Systems initializing. Please wait...</div>
+                </div>
+                <div class="chat-input">
+                    <input type="text" id="chat-input" placeholder="Type command here..." disabled>
+                    <button id="send-button" disabled>SEND</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="hud-controls">
+            <div class="control-button" id="voice-command" data-label="VOICE" disabled>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 1C10.3431 1 9 2.34315 9 4V12C9 13.6569 10.3431 15 12 15C13.6569 15 15 13.6569 15 12V4C15 2.34315 13.6569 1 12 1Z" fill="currentColor"/>
+                    <path d="M5 11C5.55228 11 6 11.4477 6 12C6 15.3137 8.68629 18 12 18C15.3137 18 18 15.3137 18 12C18 11.4477 18.4477 11 19 11C19.5523 11 20 11.4477 20 12C20 16.4183 16.4183 20 12 20C7.58172 20 4 16.4183 4 12C4 11.4477 4.44772 11 5 11Z" fill="currentColor"/>
+                    <path d="M12 19C12.5523 19 13 19.4477 13 20V23C13 23.5523 12.5523 24 12 24C11.4477 24 11 23.5523 11 23V20C11 19.4477 11.4477 19 12 19Z" fill="currentColor"/>
+                </svg>
+            </div>
+            <div class="control-button" id="full-video-button" data-label="FULL VIEW" disabled>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M7 7H4V4H7V7Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M20 7H17V4H20V7Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M20 20H17V17H20V20Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M7 20H4V17H7V20Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M7 17H4V20H7V17Z" stroke="currentColor" stroke-width="2"/>
+                </svg>
+            </div>
+            <div class="control-button" id="environment-button" data-label="ENVIRON" disabled>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="currentColor"/>
+                    <path d="M12.93 4.26C12.69 4.1 12.35 4.18 12.22 4.43C12.09 4.68 12.17 5.01 12.42 5.14C14.23 6.12 15.5 8.03 15.5 10.16C15.5 12.29 14.23 14.2 12.42 15.18C12.17 15.31 12.09 15.64 12.22 15.89C12.35 16.14 12.69 16.22 12.93 16.06C15.11 14.9 16.5 12.65 16.5 10.16C16.5 7.67 15.11 5.42 12.93 4.26Z" fill="currentColor"/>
+                </svg>
+            </div>
+            <div class="control-button" id="biometric-button" data-label="BIOMETRICS" disabled>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="currentColor"/>
+                    <path d="M12 6C8.69 6 6 8.69 6 12C6 15.31 8.69 18 12 18C15.31 18 18 15.31 18 12C18 8.69 15.31 6 12 6ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16Z" fill="currentColor"/>
+                </svg>
+            </div>
+            <div class="control-button" id="friday-button" data-label="F.R.I.D.A.Y." disabled>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="currentColor"/>
+                    <path d="M12 6C8.69 6 6 8.69 6 12C6 15.31 8.69 18 12 18C15.31 18 18 15.31 18 12C18 8.69 15.31 6 12 6ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16Z" fill="currentColor"/>
+                </svg>
+            </div>
+            <div class="control-button end-call" id="end-call" data-label="END" disabled>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 4.58579L4.41421 3L21 19.5858L19.5858 21L16.0239 17.4381C14.591 18.0053 13.0459 18.1818 11.5225 17.9107L9.78885 19.6444C9.40215 20.0311 8.76899 20.0311 8.38228 19.6444L4.3556 15.6177C3.9689 15.231 3.9689 14.5979 4.3556 14.2112L6.08927 12.4775C5.81818 10.9541 5.99466 9.40896 6.56189 7.97607L3 4.58579Z" fill="currentColor"/>
+                    <path d="M21 5C21 3.89543 20.1046 3 19 3H10.4142L12.4142 5H19V12.5858L21 14.5858V5Z" fill="currentColor"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full Video Mode -->
+    <div class="full-video-mode" id="full-video-mode">
+        <div class="close-full-video" id="close-full-video">×</div>
+        <div class="full-video-container">
+            <video id="full-user-video" autoplay class="full-video"></video>
+        </div>
+        <div class="speech-textbox" id="speech-textbox">
+            Initializing voice recognition...
+        </div>
+    </div>
+
+    <!-- Voice Indicator -->
+    <div class="voice-indicator" id="voice-indicator">
+        <div class="pulse-dot"></div>
+        <div class="voice-text">LISTENING...</div>
+    </div>
+
+    <!-- HUD Response -->
+    <div class="hud-response" id="hud-response">
+        <div class="response-text"><span class="jarvis">J.A.R.V.I.S.:</span> <span id="response-text">Systems initializing</span></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM Elements
+            const userVideo = document.getElementById('user-video');
+            const fullUserVideo = document.getElementById('full-user-video');
+            const voiceCommandButton = document.getElementById('voice-command');
+            const fullVideoButton = document.getElementById('full-video-button');
+            const closeFullVideoButton = document.getElementById('close-full-video');
+            const fullVideoMode = document.getElementById('full-video-mode');
+            const environmentButton = document.getElementById('environment-button');
+            const biometricButton = document.getElementById('biometric-button');
+            const fridayButton = document.getElementById('friday-button');
+            const endCallButton = document.getElementById('end-call');
+            const voiceIndicator = document.getElementById('voice-indicator');
+            const hudResponse = document.getElementById('hud-response');
+            const responseText = document.getElementById('response-text');
+            const timeDisplay = document.getElementById('time-display');
+            const dateDisplay = document.getElementById('date-display');
+            const voiceStatus = document.getElementById('voice-status');
+            const chatInput = document.getElementById('chat-input');
+            const sendButton = document.getElementById('send-button');
+            const chatMessages = document.getElementById('chat-messages');
+            const speechTextbox = document.getElementById('speech-textbox');
+            const environmentPanel = document.getElementById('environment-panel');
+            const biometricDisplay = document.getElementById('biometric-display');
+            const gestureArea = document.getElementById('gesture-area');
+            const gpsLocation = document.getElementById('gps-location');
+            const temperature = document.getElementById('temperature');
+            const weather = document.getElementById('weather');
+            const pressure = document.getElementById('pressure');
+            const windSpeed = document.getElementById('wind-speed');
+            const heartRate = document.getElementById('heart-rate');
+            const stressLevel = document.getElementById('stress-level');
+            const heartRateGraph = document.getElementById('heart-rate-graph');
+            const arcReactor = document.getElementById('arc-reactor');
+            const circuitBoard = document.getElementById('circuit-board');
+            const neuralNetwork = document.getElementById('neural-network');
+            const particlesContainer = document.getElementById('particles');
+            const loadingScreen = document.getElementById('loading-screen');
+            const loadingProgress = document.getElementById('loading-progress');
+            const objectDetectionStatus = document.getElementById('object-detection-status');
+            const faceRecognitionStatus = document.getElementById('face-recognition-status');
+
+            // State variables
+            let localStream = null;
+            let recognition = null;
+            let isListening = false;
+            let isFridayMode = false;
+            let isEnvironmentActive = false;
+            let isBiometricActive = false;
+            let isFullVideoMode = false;
+            let isEmergencyMode = false;
+            let heartRateData = [];
+            let stressLevelData = [];
+            let audioContext = null;
+            let voiceProcessor = null;
+            let objectDetectionModel = null;
+            let faceDetectionModel = null;
+            let tesseractWorker = null;
+            let detectedObjects = [];
+            let detectedFaces = [];
+            let weatherDataCache = null;
+            let locationDataCache = null;
+
+            // Initialize all components
+            async function initializeSystem() {
+                try {
+                    // Step 1: Load core components
+                    updateLoadingProgress(10, "Loading core components...");
+                    await Promise.all([
+                        startVideoFeed(),
+                        initDateTime(),
+                        createCircuitBoard(),
+                        createNeuralNetwork(),
+                        createParticles()
+                    ]);
+
+                    // Step 2: Load AI models
+                    updateLoadingProgress(30, "Loading AI models...");
+                    await Promise.all([
+                        loadObjectDetectionModel(),
+                        loadFaceRecognitionModel(),
+                        initTesseractOCR()
+                    ]);
+
+                    // Step 3: Initialize APIs
+                    updateLoadingProgress(60, "Initializing APIs...");
+                    await Promise.all([
+                        initSpeechRecognition(),
+                        initAudioProcessing(),
+                        getEnvironmentalData(true) // Initial load
+                    ]);
+
+                    // Step 4: Final setup
+                    updateLoadingProgress(90, "Finalizing setup...");
+                    setupEventListeners();
+                    enableControls();
+
+                    // Complete initialization
+                    updateLoadingProgress(100, "Systems online");
+                    setTimeout(() => {
+                        loadingScreen.style.display = 'none';
+                        addMessage("J.A.R.V.I.S. online. Systems operational. Ready for commands.", 'jarvis');
+                        showResponse("J.A.R.V.I.S. online. Systems operational.");
+                    }, 1000);
+                } catch (error) {
+                    console.error("Initialization error:", error);
+                    updateLoadingProgress(0, `Initialization failed: ${error.message}`);
+                    addMessage("System initialization failed. Some features may not work.", 'jarvis');
+                }
+            }
+
+            // Update loading progress
+            function updateLoadingProgress(percent, message) {
+                loadingProgress.textContent = `${message} (${percent}%)`;
+            }
+
+            // Enable all controls after initialization
+            function enableControls() {
+                voiceCommandButton.disabled = false;
+                fullVideoButton.disabled = false;
+                environmentButton.disabled = false;
+                biometricButton.disabled = false;
+                fridayButton.disabled = false;
+                endCallButton.disabled = false;
+                chatInput.disabled = false;
+                sendButton.disabled = false;
+            }
+
+            // Initialize speech recognition if available
+            function initSpeechRecognition() {
+                return new Promise((resolve, reject) => {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    
+                    if (SpeechRecognition) {
+                        recognition = new SpeechRecognition();
+                        recognition.continuous = false;
+                        recognition.interimResults = true;
+                        recognition.lang = 'en-US';
+                        
+                        recognition.onstart = function() {
+                            isListening = true;
+                            voiceIndicator.classList.add('active');
+                            voiceStatus.textContent = "LISTENING";
+                            if (isFullVideoMode) {
+                                speechTextbox.textContent = "Listening...";
+                            }
+                            activateCircuitEffect();
+                        };
+                        
+                        recognition.onend = function() {
+                            isListening = false;
+                            voiceIndicator.classList.remove('active');
+                            voiceStatus.textContent = "ACTIVE";
+                            if (isFullVideoMode && speechTextbox.textContent === "Listening...") {
+                                speechTextbox.textContent = "Ready for voice commands...";
+                            }
+                            deactivateCircuitEffect();
+                        };
+                        
+                        recognition.onresult = function(event) {
+                            const transcript = Array.from(event.results)
+                                .map(result => result[0])
+                                .map(result => result.transcript)
+                                .join('');
+                            
+                            if (isFullVideoMode) {
+                                speechTextbox.textContent = transcript;
+                            }
+                            
+                            if (event.results[0].isFinal) {
+                                addMessage(transcript, 'user');
+                                processCommand(transcript);
+                                
+                                if (isFullVideoMode) {
+                                    setTimeout(() => {
+                                        speechTextbox.textContent = "Processing...";
+                                    }, 500);
+                                }
+                            }
+                        };
+                        
+                        recognition.onerror = function(event) {
+                            console.error('Speech recognition error', event.error);
+                            addMessage("Voice recognition error: " + event.error, 'jarvis');
+                            voiceIndicator.classList.remove('active');
+                            voiceStatus.textContent = "ERROR";
+                            
+                            if (isFullVideoMode) {
+                                speechTextbox.textContent = "Error: " + event.error;
+                            }
+                            deactivateCircuitEffect();
+                            reject(event.error);
+                        };
+                        
+                        voiceCommandButton.addEventListener('click', toggleVoiceRecognition);
+                        resolve();
+                    } else {
+                        voiceCommandButton.style.display = 'none';
+                        addMessage("Voice commands not supported in this browser", 'jarvis');
+                        voiceStatus.textContent = "UNAVAILABLE";
+                        reject(new Error("SpeechRecognition API not available"));
+                    }
+                });
+            }
+
+            // Initialize Web Audio for voice modulation
+            function initAudioProcessing() {
+                return new Promise((resolve, reject) => {
+                    try {
+                        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        
+                        if (localStream && localStream.getAudioTracks().length > 0) {
+                            setupVoiceProcessor();
+                        }
+                        resolve();
+                    } catch (e) {
+                        console.error('Web Audio API not supported', e);
+                        reject(e);
+                    }
+                });
+            }
+
+            function setupVoiceProcessor() {
+                if (!audioContext || !localStream) return;
+                
+                try {
+                    const source = audioContext.createMediaStreamSource(localStream);
+                    voiceProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+                    
+                    voiceProcessor.onaudioprocess = function(e) {
+                        if (isFridayMode) {
+                            // Simple pitch shift effect for Friday mode
+                            const inputBuffer = e.inputBuffer;
+                            const outputBuffer = e.outputBuffer;
+                            
+                            for (let channel = 0; channel < outputBuffer.numberOfChannels; channel++) {
+                                const inputData = inputBuffer.getChannelData(channel);
+                                const outputData = outputBuffer.getChannelData(channel);
+                                
+                                // Simple pitch shift (can be enhanced)
+                                for (let i = 0; i < inputData.length; i++) {
+                                    outputData[i] = inputData[i] * (0.5 + Math.random() * 0.5);
+                                }
+                            }
+                        }
+                    };
+                    
+                    source.connect(voiceProcessor);
+                    voiceProcessor.connect(audioContext.destination);
+                } catch (e) {
+                    console.error('Error setting up audio processor', e);
+                }
+            }
+
+            // Load object detection model
+            async function loadObjectDetectionModel() {
+                try {
+                    updateLoadingProgress(35, "Loading object detection model...");
+                    objectDetectionModel = await cocoSsd.load();
+                    objectDetectionStatus.textContent = "READY";
+                    startObjectDetection();
+                    return true;
+                } catch (error) {
+                    console.error("Error loading object detection model:", error);
+                    objectDetectionStatus.textContent = "ERROR";
+                    return false;
+                }
+            }
+
+            // Load face recognition model
+            async function loadFaceRecognitionModel() {
+                try {
+                    updateLoadingProgress(40, "Loading face recognition model...");
+                    await faceapi.nets.tinyFaceDetector.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models');
+                    await faceapi.nets.faceLandmark68Net.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models');
+                    await faceapi.nets.faceRecognitionNet.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models');
+                    faceRecognitionStatus.textContent = "READY";
+                    startFaceDetection();
+                    return true;
+                } catch (error) {
+                    console.error("Error loading face recognition model:", error);
+                    faceRecognitionStatus.textContent = "ERROR";
+                    return false;
+                }
+            }
+
+            // Initialize Tesseract OCR
+            async function initTesseractOCR() {
+                try {
+                    updateLoadingProgress(45, "Initializing OCR engine...");
+                    tesseractWorker = await Tesseract.createWorker({
+                        logger: m => {
+                            if (m.status === 'initializing api') {
+                                updateLoadingProgress(50, "Initializing OCR engine...");
+                            }
+                        }
+                    });
+                    await tesseractWorker.loadLanguage('eng');
+                    await tesseractWorker.initialize('eng');
+                    return true;
+                } catch (error) {
+                    console.error("Error initializing Tesseract:", error);
+                    return false;
+                }
+            }
+
+            // Start object detection
+            async function startObjectDetection() {
+                if (!objectDetectionModel || !userVideo.srcObject) return;
+                
+                try {
+                    const predictions = await objectDetectionModel.detect(userVideo);
+                    detectedObjects = predictions;
+                    updateObjectDetectionDisplay();
+                    
+                    // Continue detecting
+                    requestAnimationFrame(startObjectDetection);
+                } catch (error) {
+                    console.error("Object detection error:", error);
+                    setTimeout(startObjectDetection, 1000);
+                }
+            }
+
+            // Update object detection display
+            function updateObjectDetectionDisplay() {
+                // Clear previous boxes
+                document.querySelectorAll('.object-detection-box').forEach(box => box.remove());
+                
+                // Add new boxes
+                detectedObjects.forEach(prediction => {
+                    const box = document.createElement('div');
+                    box.className = 'object-detection-box';
+                    box.style.left = `${prediction.bbox[0]}px`;
+                    box.style.top = `${prediction.bbox[1]}px`;
+                    box.style.width = `${prediction.bbox[2]}px`;
+                    box.style.height = `${prediction.bbox[3]}px`;
+                    box.textContent = `${prediction.class} (${Math.round(prediction.score * 100)}%)`;
+                    userVideo.parentNode.appendChild(box);
+                });
+            }
+
+            // Start face detection
+            async function startFaceDetection() {
+                if (!userVideo.srcObject) return;
+                
+                try {
+                    const detections = await faceapi.detectAllFaces(userVideo, 
+                        new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+                    detectedFaces = detections;
+                    updateFaceDetectionDisplay();
+                    
+                    // Continue detecting
+                    requestAnimationFrame(startFaceDetection);
+                } catch (error) {
+                    console.error("Face detection error:", error);
+                    setTimeout(startFaceDetection, 1000);
+                }
+            }
+
+            // Update face detection display
+            function updateFaceDetectionDisplay() {
+                // Clear previous boxes
+                document.querySelectorAll('.face-detection-box').forEach(box => box.remove());
+                
+                // Add new boxes
+                detectedFaces.forEach(detection => {
+                    const box = document.createElement('div');
+                    box.className = 'face-detection-box';
+                    const boxRect = detection.detection.box;
+                    box.style.left = `${boxRect.x}px`;
+                    box.style.top = `${boxRect.y}px`;
+                    box.style.width = `${boxRect.width}px`;
+                    box.style.height = `${boxRect.height}px`;
+                    box.textContent = `Face (${Math.round(detection.detection.score * 100)}%)`;
+                    userVideo.parentNode.appendChild(box);
+                });
+            }
+
+            // Perform OCR on an image
+            async function performOCR(imageElement) {
+                if (!tesseractWorker) return "OCR not available";
+                
+                try {
+                    const { data: { text } } = await tesseractWorker.recognize(imageElement);
+                    return text;
+                } catch (error) {
+                    console.error("OCR error:", error);
+                    return "OCR failed";
+                }
+            }
+
+            // Start video feed
+            async function startVideoFeed() {
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: "user",
+                            width: { ideal: 1280 },
+                            height: { ideal: 1280 }
+                        },
+                        audio: true
+                    });
+                    userVideo.srcObject = localStream;
+                    fullUserVideo.srcObject = localStream;
+                    return true;
+                } catch (error) {
+                    console.error("Error accessing camera/microphone:", error);
+                    addMessage("Could not access camera or microphone. Please check permissions.", 'jarvis');
+                    return false;
+                }
+            }
+
+            // Create circuit board effect
+            function createCircuitBoard() {
+                const svgNS = "http://www.w3.org/2000/svg";
+                const svg = document.createElementNS(svgNS, "svg");
+                svg.setAttribute("width", "100%");
+                svg.setAttribute("height", "100%");
+                
+                // Create circuit paths
+                for (let i = 0; i < 50; i++) {
+                    const path = document.createElementNS(svgNS, "path");
+                    const startX = Math.random() * 100;
+                    const startY = Math.random() * 100;
+                    let d = `M${startX},${startY}`;
+                    
+                    // Create a random circuit path
+                    for (let j = 0; j < 5 + Math.floor(Math.random() * 10); j++) {
+                        const x = startX + (Math.random() * 40 - 20);
+                        const y = startY + (Math.random() * 40 - 20);
+                        d += ` L${x},${y}`;
+                    }
+                    
+                    path.setAttribute("d", d);
+                    path.setAttribute("stroke", isFridayMode ? "url(#friday-circuit)" : "url(#jarvis-circuit)");
+                    path.setAttribute("stroke-width", "0.5");
+                    path.setAttribute("fill", "none");
+                    path.setAttribute("opacity", "0");
+                    path.style.transition = "opacity 0.5s";
+                    svg.appendChild(path);
+                }
+                
+                // Add gradient definitions
+                const defs = document.createElementNS(svgNS, "defs");
+                
+                const jarvisGradient = document.createElementNS(svgNS, "linearGradient");
+                jarvisGradient.setAttribute("id", "jarvis-circuit");
+                jarvisGradient.setAttribute("x1", "0%");
+                jarvisGradient.setAttribute("y1", "0%");
+                jarvisGradient.setAttribute("x2", "100%");
+                jarvisGradient.setAttribute("y2", "100%");
+                
+                const stop1 = document.createElementNS(svgNS, "stop");
+                stop1.setAttribute("offset", "0%");
+                stop1.setAttribute("stop-color", "#00aaff");
+                jarvisGradient.appendChild(stop1);
+                
+                const stop2 = document.createElementNS(svgNS, "stop");
+                stop2.setAttribute("offset", "100%");
+                stop2.setAttribute("stop-color", "#00ffaa");
+                jarvisGradient.appendChild(stop2);
+                
+                defs.appendChild(jarvisGradient);
+                
+                const fridayGradient = document.createElementNS(svgNS, "linearGradient");
+                fridayGradient.setAttribute("id", "friday-circuit");
+                fridayGradient.setAttribute("x1", "0%");
+                fridayGradient.setAttribute("y1", "0%");
+                fridayGradient.setAttribute("x2", "100%");
+                fridayGradient.setAttribute("y2", "100%");
+                
+                const stop3 = document.createElementNS(svgNS, "stop");
+                stop3.setAttribute("offset", "0%");
+                stop3.setAttribute("stop-color", "#9c27b0");
+                fridayGradient.appendChild(stop3);
+                
+                const stop4 = document.createElementNS(svgNS, "stop");
+                stop4.setAttribute("offset", "100%");
+                stop4.setAttribute("stop-color", "#e91e63");
+                fridayGradient.appendChild(stop4);
+                
+                defs.appendChild(fridayGradient);
+                
+                svg.appendChild(defs);
+                circuitBoard.appendChild(svg);
+                
+                // Animate paths
+                const paths = svg.querySelectorAll('path');
+                paths.forEach((path, index) => {
+                    setTimeout(() => {
+                        path.setAttribute("opacity", "0.3");
+                    }, index * 100);
+                });
+            }
+
+            // Create neural network visualization
+            function createNeuralNetwork() {
+                const nodes = [];
+                const connections = [];
+                
+                // Create nodes
+                for (let i = 0; i < 20; i++) {
+                    const node = document.createElement('div');
+                    node.className = 'neural-node';
+                    node.style.left = `${Math.random() * 100}%`;
+                    node.style.top = `${Math.random() * 100}%`;
+                    neuralNetwork.appendChild(node);
+                    nodes.push(node);
+                }
+                
+                // Create connections
+                for (let i = 0; i < nodes.length; i++) {
+                    for (let j = i + 1; j < nodes.length; j++) {
+                        if (Math.random() > 0.7) {
+                            createConnection(nodes[i], nodes[j]);
+                        }
+                    }
+                }
+                
+                // Animate nodes
+                setInterval(() => {
+                    nodes.forEach(node => {
+                        if (Math.random() > 0.9) {
+                            node.style.transform = 'scale(1.5)';
+                            node.style.boxShadow = `0 0 10px ${isFridayMode ? 'var(--friday-pink)' : 'var(--jarvis-blue)'}`;
+                            setTimeout(() => {
+                                node.style.transform = 'scale(1)';
+                                node.style.boxShadow = `0 0 5px ${isFridayMode ? 'var(--friday-pink)' : 'var(--jarvis-blue)'}`;
+                            }, 300);
+                        }
+                    });
+                }, 100);
+            }
+            
+            function createConnection(node1, node2) {
+                const rect1 = node1.getBoundingClientRect();
+                const rect2 = node2.getBoundingClientRect();
+                
+                const x1 = rect1.left + rect1.width / 2;
+                const y1 = rect1.top + rect1.height / 2;
+                const x2 = rect2.left + rect2.width / 2;
+                const y2 = rect2.top + rect2.height / 2;
+                
+                const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+                const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+                
+                const connection = document.createElement('div');
+                connection.className = 'neural-connection';
+                connection.style.width = `${length}px`;
+                connection.style.left = `${x1}px`;
+                connection.style.top = `${y1}px`;
+                connection.style.transform = `rotate(${angle}deg)`;
+                neuralNetwork.appendChild(connection);
+            }
+
+            // Create particle system
+            function createParticles() {
+                for (let i = 0; i < 100; i++) {
+                    createParticle();
+                }
+                
+                setInterval(() => {
+                    if (Math.random() > 0.7) {
+                        createParticle();
+                    }
+                }, 300);
+            }
+            
+            function createParticle() {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = `${Math.random() * 100}%`;
+                particle.style.top = `${Math.random() * 100}%`;
+                
+                // Random size and opacity
+                const size = 1 + Math.random() * 3;
+                particle.style.width = `${size}px`;
+                particle.style.height = `${size}px`;
+                particle.style.opacity = 0.2 + Math.random() * 0.5;
+                
+                particlesContainer.appendChild(particle);
+                
+                // Animate particle
+                const duration = 3000 + Math.random() * 5000;
+                const xEnd = parseInt(particle.style.left) + (Math.random() * 200 - 100);
+                const yEnd = parseInt(particle.style.top) + (Math.random() * 200 - 100);
+                
+                const animation = particle.animate([
+                    { transform: 'translate(0, 0)', opacity: particle.style.opacity },
+                    { transform: `translate(${xEnd - parseInt(particle.style.left)}px, ${yEnd - parseInt(particle.style.top)}px)`, opacity: 0 }
+                ], {
+                    duration: duration,
+                    easing: 'linear'
+                });
+                
+                animation.onfinish = () => {
+                    particle.remove();
+                };
+            }
+
+            // Initialize date and time
+            function initDateTime() {
+                updateDateTime();
+                setInterval(updateDateTime, 1000);
+            }
+
+            // Update date and time
+            function updateDateTime() {
+                const now = new Date();
+                timeDisplay.textContent = now.toLocaleTimeString('en-US', { hour12: false });
+                dateDisplay.textContent = now.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: '2-digit', 
+                    day: '2-digit' 
+                }).replace(/\//g, '-');
+            }
+
+            // Activate circuit effect when listening
+            function activateCircuitEffect() {
+                const paths = circuitBoard.querySelectorAll('path');
+                paths.forEach(path => {
+                    path.style.opacity = '0.7';
+                    path.style.animation = 'pulse 1s infinite alternate';
+                });
+            }
+            
+            function deactivateCircuitEffect() {
+                const paths = circuitBoard.querySelectorAll('path');
+                paths.forEach(path => {
+                    path.style.opacity = '0.3';
+                    path.style.animation = 'none';
+                });
+            }
+
+            // Toggle voice recognition
+            function toggleVoiceRecognition() {
+                if (!recognition) return;
+                
+                if (isListening) {
+                    recognition.stop();
+                    voiceCommandButton.classList.remove('active');
+                } else {
+                    try {
+                        recognition.start();
+                        voiceCommandButton.classList.add('active');
+                    } catch (e) {
+                        console.error('Speech recognition start failed:', e);
+                    }
+                }
+            }
+
+            // Toggle full video mode
+            function toggleFullVideoMode() {
+                isFullVideoMode = !isFullVideoMode;
+                fullVideoMode.classList.toggle('active', isFullVideoMode);
+                fullVideoButton.classList.toggle('active', isFullVideoMode);
+                
+                // Start listening in full video mode
+                if (isFullVideoMode && recognition) {
+                    recognition.start();
+                    voiceCommandButton.classList.add('active');
+                } else if (recognition && isListening) {
+                    recognition.stop();
+                    voiceCommandButton.classList.remove('active');
+                }
+            }
+
+            // Toggle environment panel
+            function toggleEnvironmentPanel() {
+                isEnvironmentActive = !isEnvironmentActive;
+                environmentPanel.classList.toggle('active', isEnvironmentActive);
+                environmentButton.classList.toggle('active', isEnvironmentActive);
+                
+                if (isEnvironmentActive) {
+                    getEnvironmentalData();
+                    addMessage("Environmental sensors activated", 'jarvis');
+                } else {
+                    addMessage("Environmental sensors deactivated", 'jarvis');
+                }
+            }
+
+            // Get environmental data from APIs
+            async function getEnvironmentalData(initialLoad = false) {
+                if (!isEnvironmentActive && !initialLoad) return;
+                
+                try {
+                    // Get location first
+                    const position = await new Promise((resolve, reject) => {
+                        if (navigator.geolocation) {
+                            navigator.geolocation.getCurrentPosition(resolve, reject);
+                        } else {
+                            reject(new Error("Geolocation not available"));
+                        }
+                    });
+                    
+                    const lat = position.coords.latitude.toFixed(4);
+                    const lon = position.coords.longitude.toFixed(4);
+                    locationDataCache = { lat, lon };
+                    gpsLocation.textContent = `${lat}° N, ${lon}° W`;
+                    
+                    // Get weather data from Open-Meteo API
+                    const weatherResponse = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+                    const weatherData = await weatherResponse.json();
+                    weatherDataCache = weatherData;
+                    
+                    // Update display
+                    const currentWeather = weatherData.current_weather;
+                    temperature.textContent = `${Math.round(currentWeather.temperature * 9/5 + 32)}°F`;
+                    weather.textContent = getWeatherDescription(currentWeather.weathercode);
+                    windSpeed.textContent = `${currentWeather.windspeed} km/h`;
+                    
+                    // Get atmospheric pressure (simulated since Open-Meteo doesn't provide it)
+                    pressure.textContent = `${Math.round(1013 + (Math.random() * 20 - 10))} hPa`;
+                    
+                    // Get location name from Nominatim
+                    try {
+                        const locationNameResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+                        const locationData = await locationNameResponse.json();
+                        const locationName = locationData.display_name || `${lat}° N, ${lon}° W`;
+                        gpsLocation.textContent = locationName;
+                    } catch (e) {
+                        console.error("Error getting location name:", e);
+                    }
+                    
+                } catch (error) {
+                    console.error("Error getting environmental data:", error);
+                    
+                    // Fallback to simulated data
+                    gpsLocation.textContent = "40.7128° N, 74.0060° W";
+                    temperature.textContent = `${Math.round(60 + Math.random() * 30)}°F`;
+                    weather.textContent = ["Clear", "Partly Cloudy", "Cloudy", "Rain", "Thunderstorm"][Math.floor(Math.random() * 5)];
+                    windSpeed.textContent = `${Math.round(5 + Math.random() * 20)} km/h`;
+                    pressure.textContent = `${Math.round(980 + Math.random() * 40)} hPa`;
+                }
+            }
+
+            // Convert weather code to description
+            function getWeatherDescription(code) {
+                const weatherCodes = {
+                    0: "Clear sky",
+                    1: "Mainly clear",
+                    2: "Partly cloudy",
+                    3: "Overcast",
+                    45: "Fog",
+                    48: "Depositing rime fog",
+                    51: "Light drizzle",
+                    53: "Moderate drizzle",
+                    55: "Dense drizzle",
+                    56: "Light freezing drizzle",
+                    57: "Dense freezing drizzle",
+                    61: "Slight rain",
+                    63: "Moderate rain",
+                    65: "Heavy rain",
+                    66: "Light freezing rain",
+                    67: "Heavy freezing rain",
+                    71: "Slight snow fall",
+                    73: "Moderate snow fall",
+                    75: "Heavy snow fall",
+                    77: "Snow grains",
+                    80: "Slight rain showers",
+                    81: "Moderate rain showers",
+                    82: "Violent rain showers",
+                    85: "Slight snow showers",
+                    86: "Heavy snow showers",
+                    95: "Thunderstorm",
+                    96: "Thunderstorm with slight hail",
+                    99: "Thunderstorm with heavy hail"
+                };
+                
+                return weatherCodes[code] || "Unknown weather";
+            }
+
+            // Toggle biometric display
+            function toggleBiometricDisplay() {
+                isBiometricActive = !isBiometricActive;
+                biometricDisplay.classList.toggle('active', isBiometricActive);
+                biometricButton.classList.toggle('active', isBiometricActive);
+                gestureArea.classList.toggle('active', isBiometricActive);
+                
+                if (isBiometricActive) {
+                    startBiometricMonitoring();
+                    addMessage("Biometric monitoring activated", 'jarvis');
+                } else {
+                    stopBiometricMonitoring();
+                    addMessage("Biometric monitoring deactivated", 'jarvis');
+                }
+            }
+
+            // Start biometric monitoring
+            function startBiometricMonitoring() {
+                if (!isBiometricActive) return;
+                
+                // Simulate biometric data
+                updateBiometricData();
+                setInterval(updateBiometricData, 2000);
+                
+                // Update graph
+                updateBiometricGraph();
+            }
+
+            // Stop biometric monitoring
+            function stopBiometricMonitoring() {
+                heartRateData = [];
+                stressLevelData = [];
+            }
+
+            // Update biometric data
+            function updateBiometricData() {
+                // Simulated data - in a real app you'd use actual biometric sensors
+                const newHeartRate = 60 + Math.floor(Math.random() * 40);
+                const newStressLevel = Math.floor(Math.random() * 100);
+                
+                heartRateData.push(newHeartRate);
+                stressLevelData.push(newStressLevel);
+                
+                // Keep only last 10 readings
+                if (heartRateData.length > 10) {
+                    heartRateData.shift();
+                    stressLevelData.shift();
+                }
+                
+                heartRate.textContent = `${newHeartRate} BPM`;
+                stressLevel.textContent = `${newStressLevel}%`;
+            }
+
+            // Update biometric graph
+            function updateBiometricGraph() {
+                if (!isBiometricActive) return;
+                
+                // Create a simple graph visualization
+                let graphHTML = '';
+                const maxHR = Math.max(...heartRateData, 100);
+                
+                heartRateData.forEach((hr, index) => {
+                    const height = (hr / maxHR) * 60;
+                    graphHTML += `<div style="position:absolute;bottom:0;left:${index * 20}px;width:10px;height:${height}px;background-color:${isFridayMode ? 'var(--friday-pink)' : 'var(--hud-green)'};"></div>`;
+                });
+                
+                heartRateGraph.innerHTML = graphHTML;
+                
+                setTimeout(updateBiometricGraph, 500);
+            }
+
+            // Toggle Friday mode
+            function toggleFridayMode() {
+                isFridayMode = !isFridayMode;
+                document.body.classList.toggle('friday-mode', isFridayMode);
+                fridayButton.classList.toggle('active', isFridayMode);
+                
+                // Update the title
+                const hudTitle = document.querySelector('.hud-title');
+                hudTitle.textContent = isFridayMode 
+                    ? "F.R.I.D.A.Y. ADVANCED INTERFACE" 
+                    : "J.A.R.V.I.S. ADVANCED INTERFACE";
+                
+                // Update all existing messages
+                const jarvisMessages = document.querySelectorAll('.jarvis-message');
+                jarvisMessages.forEach(msg => {
+                    if (isFridayMode) {
+                        msg.innerHTML = msg.innerHTML.replace(/J\.A\.R\.V\.I\.S\./g, 'F.R.I.D.A.Y.');
+                    } else {
+                        msg.innerHTML = msg.innerHTML.replace(/F\.R\.I\.D\.A\.Y\./g, 'J.A.R.V.I.S.');
+                    }
+                });
+                
+                // Update voice modulation
+                if (voiceProcessor && localStream) {
+                    if (isFridayMode) {
+                        setupVoiceProcessor();
+                    } else {
+                        if (voiceProcessor) {
+                            voiceProcessor.disconnect();
+                            voiceProcessor = null;
+                        }
+                    }
+                }
+                
+                if (isFridayMode) {
+                    addMessage("F.R.I.D.A.Y. online. Systems operational.", 'jarvis');
+                    showResponse("F.R.I.D.A.Y. online. Systems operational.");
+                } else {
+                    addMessage("J.A.R.V.I.S. back online. Systems operational.", 'jarvis');
+                    showResponse("J.A.R.V.I.S. back online. Systems operational.");
+                }
+            }
+
+            // Toggle emergency mode
+            function toggleEmergencyMode() {
+                isEmergencyMode = !isEmergencyMode;
+                document.body.classList.toggle('emergency-mode', isEmergencyMode);
+                
+                if (isEmergencyMode) {
+                    addMessage("EMERGENCY PROTOCOL ACTIVATED", 'jarvis');
+                    showResponse("Emergency mode engaged. All systems at maximum capacity.");
+                } else {
+                    addMessage("Emergency protocol deactivated", 'jarvis');
+                    showResponse("Systems returning to normal operation.");
+                }
+            }
+
+            // End call
+            function endCall() {
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                    localStream = null;
+                }
+                
+                if (isListening && recognition) {
+                    recognition.stop();
+                }
+                
+                addMessage("Connection terminated", 'jarvis');
+                showResponse("Connection terminated. Goodbye.");
+                
+                // In a real app, you'd want to handle this differently
+                setTimeout(() => {
+                    document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;color:white;font-size:24px;">Connection ended</div>';
+                }, 2000);
+            }
+
+            // Process command
+            async function processCommand(command) {
+                const lowerCmd = command.toLowerCase();
+                let response = "";
+                
+                // System commands
+                if (lowerCmd.includes('diagnostic') || lowerCmd.includes('system status')) {
+                    response = `System diagnostic complete. All systems nominal. 
+                    CPU: ${Math.floor(Math.random() * 30) + 10}% | 
+                    Memory: ${Math.floor(Math.random() * 30) + 50}% | 
+                    Power: ${Math.floor(Math.random() * 20) + 80}%`;
+                }
+                else if (lowerCmd.includes('time') || lowerCmd.includes('what time is it')) {
+                    response = "Current time is " + new Date().toLocaleTimeString();
+                }
+                else if (lowerCmd.includes('date') || lowerCmd.includes('what day is it')) {
+                    response = "Today is " + new Date().toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    });
+                }
+                else if (lowerCmd.includes('hello') || lowerCmd.includes('hi') || lowerCmd.includes('hey')) {
+                    response = "Good " + getTimeOfDay() + ", sir. How may I assist you?";
+                }
+                else if (lowerCmd.includes('who are you') || lowerCmd.includes('what are you')) {
+                    response = isFridayMode 
+                        ? "I am F.R.I.D.A.Y., your personal AI assistant." 
+                        : "I am J.A.R.V.I.S., Just A Rather Very Intelligent System. Your personal AI assistant.";
+                }
+                else if (lowerCmd.includes('thank')) {
+                    response = "You're welcome, sir. Always at your service.";
+                }
+                else if (lowerCmd.includes('activate') && lowerCmd.includes('protocol')) {
+                    if (lowerCmd.includes('house party')) {
+                        response = "Activating House Party Protocol. Deploying all suits.";
+                    } else if (lowerCmd.includes('clean slate')) {
+                        response = "Clean Slate Protocol initiated. All systems reset.";
+                    } else if (lowerCmd.includes('emergency')) {
+                        toggleEmergencyMode();
+                        return;
+                    } else {
+                        response = "Please specify protocol name for activation.";
+                    }
+                }
+                else if (lowerCmd.includes('environment') || lowerCmd.includes('weather')) {
+                    toggleEnvironmentPanel();
+                    response = isEnvironmentActive ? "Environmental sensors activated" : "Environmental sensors deactivated";
+                }
+                else if (lowerCmd.includes('biometric') || lowerCmd.includes('vital')) {
+                    toggleBiometricDisplay();
+                    response = isBiometricActive ? "Biometric monitoring activated" : "Biometric monitoring deactivated";
+                }
+                else if (lowerCmd.includes('friday') || lowerCmd.includes('switch')) {
+                    toggleFridayMode();
+                    return; // Response handled in toggleFridayMode
+                }
+                else if (lowerCmd.includes('what do you see') || lowerCmd.includes('detect objects')) {
+                    if (detectedObjects.length > 0) {
+                        const objectsList = detectedObjects.map(obj => 
+                            `${obj.class} (${Math.round(obj.score * 100)}%)`).join(', ');
+                        response = `I see: ${objectsList}`;
+                    } else {
+                        response = "No objects detected currently.";
+                    }
+                }
+                else if (lowerCmd.includes('who is here') || lowerCmd.includes('detect faces')) {
+                    if (detectedFaces.length > 0) {
+                        response = `I detect ${detectedFaces.length} face${detectedFaces.length !== 1 ? 's' : ''} in view.`;
+                    } else {
+                        response = "No faces detected currently.";
+                    }
+                }
+                else if (lowerCmd.includes('translate') && lowerCmd.includes('to')) {
+                    // Extract language and text
+                    const langMatch = command.match(/to\s+(\w+)/i);
+                    const textMatch = command.match(/translate\s+"?([^"]+)"?\s+to/i) || 
+                                     command.match(/translate\s+"(.+)"\s+to/i);
+                    
+                    if (langMatch && textMatch) {
+                        const lang = langMatch[1].toLowerCase();
+                        const text = textMatch[1];
+                        response = await translateText(text, lang);
+                    } else {
+                        response = "Please specify both text and target language for translation.";
+                    }
+                }
+                else if (lowerCmd.includes('generate') || lowerCmd.includes('create') || lowerCmd.includes('write')) {
+                    // Use AI to generate content
+                    const prompt = command.replace(/generate|create|write/gi, '').trim();
+                    if (prompt) {
+                        response = await generateAIResponse(prompt);
+                    } else {
+                        response = "Please specify what you'd like me to generate.";
+                    }
+                }
+                else {
+                    // Try to get a response from Hugging Face inference API
+                    try {
+                        response = await getAIResponse(command);
+                    } catch (error) {
+                        console.error("AI response error:", error);
+                        
+                        // Fallback to snarky responses
+                        if (Math.random() < 0.3) {
+                            const snarkyResponses = [
+                                "I'm sorry, I didn't quite catch that. Perhaps you'd like to try again?",
+                                "That's an interesting command. Unfortunately, I have no idea what to do with it.",
+                                "Shall I call Pepper to help with that?",
+                                "I could do that, but I'm not sure why you'd want me to.",
+                                "Command received. Processing... Just kidding, I'm ignoring that one."
+                            ];
+                            response = snarkyResponses[Math.floor(Math.random() * snarkyResponses.length)];
+                        } else {
+                            response = "Command received: '" + command + "'. Processing request...";
+                        }
+                    }
+                }
+                
+                addMessage(response, 'jarvis');
+                showResponse(response);
+                
+                if (isFullVideoMode) {
+                    speechTextbox.textContent = response;
+                    setTimeout(() => {
+                        speechTextbox.textContent = "Ready for voice commands...";
+                    }, 3000);
+                }
+            }
+
+            // Get AI response from Hugging Face
+            async function getAIResponse(prompt) {
+                try {
+                    // For demo purposes, we'll use a simple mock response
+                    // In a real app, you'd call the Hugging Face Inference API
+                    const mockResponses = [
+                        `I've processed your request about "${prompt}". Here's what I found...`,
+                        `Analyzing "${prompt}"... My assessment is that this requires further consideration.`,
+                        `Regarding "${prompt}", my databases indicate several possible interpretations.`,
+                        `"${prompt}" is an interesting topic. Let me provide some insights.`,
+                        `Processing your query about "${prompt}". Stand by for analysis.`
+                    ];
+                    
+                    // Simulate API delay
+                    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+                    
+                    return mockResponses[Math.floor(Math.random() * mockResponses.length)];
+                } catch (error) {
+                    throw error;
+                }
+            }
+
+            // Generate AI response for creative tasks
+            async function generateAIResponse(prompt) {
+                try {
+                    // For demo purposes, we'll use a simple mock response
+                    // In a real app, you'd call an AI text generation API
+                    const mockResponses = [
+                        `Here's what I generated based on "${prompt}": [Creative content would appear here]`,
+                        `Creating content about "${prompt}"... Done. Here's the result.`,
+                        `I've composed the following about "${prompt}". Let me know if you'd like adjustments.`,
+                        `Based on your request for "${prompt}", I've generated this output.`
+                    ];
+                    
+                    // Simulate generation delay
+                    await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 2500));
+                    
+                    return mockResponses[Math.floor(Math.random() * mockResponses.length)];
+                } catch (error) {
+                    console.error("Content generation error:", error);
+                    return "I encountered an error while generating content. Please try again.";
+                }
+            }
+
+            // Translate text using LibreTranslate (mock for demo)
+            async function translateText(text, targetLang) {
+                try {
+                    // For demo purposes, we'll use a simple mock response
+                    // In a real app, you'd call the LibreTranslate API or similar
+                    const mockTranslations = {
+                        spanish: `[Spanish translation of "${text}"]`,
+                        french: `[French translation of "${text}"]`,
+                        german: `[German translation of "${text}"]`,
+                        chinese: `[Chinese translation of "${text}"]`,
+                        japanese: `[Japanese translation of "${text}"]`
+                    };
+                    
+                    // Simulate API delay
+                    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
+                    
+                    return mockTranslations[targetLang] || `Translation to ${targetLang} not available in this demo.`;
+                } catch (error) {
+                    console.error("Translation error:", error);
+                    return "Translation service unavailable at the moment.";
+                }
+            }
+
+            // Add message to chat
+            function addMessage(text, sender) {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('message');
+                messageDiv.classList.add(sender === 'user' ? 'user-message' : 'jarvis-message');
+                
+                if (sender === 'jarvis') {
+                    messageDiv.innerHTML = isFridayMode 
+                        ? `<span class="jarvis">F.R.I.D.A.Y.:</span> ${text}` 
+                        : `<span class="jarvis">J.A.R.V.I.S.:</span> ${text}`;
+                } else {
+                    messageDiv.textContent = `USER: ${text}`;
+                }
+                
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // Animate neural network when receiving messages
+                if (sender === 'jarvis') {
+                    animateNeuralNetwork();
+                }
+            }
+
+            // Animate neural network
+            function animateNeuralNetwork() {
+                const nodes = neuralNetwork.querySelectorAll('.neural-node');
+                const connections = neuralNetwork.querySelectorAll('.neural-connection');
+                
+                // Pulse random nodes
+                for (let i = 0; i < 3; i++) {
+                    const randomNode = nodes[Math.floor(Math.random() * nodes.length)];
+                    randomNode.style.transform = 'scale(1.5)';
+                    randomNode.style.boxShadow = `0 0 10px ${isFridayMode ? 'var(--friday-pink)' : 'var(--jarvis-blue)'}`;
+                    
+                    setTimeout(() => {
+                        randomNode.style.transform = 'scale(1)';
+                        randomNode.style.boxShadow = `0 0 5px ${isFridayMode ? 'var(--friday-pink)' : 'var(--jarvis-blue)'}`;
+                    }, 300);
+                }
+                
+                // Highlight connections
+                connections.forEach(conn => {
+                    conn.style.opacity = '0.7';
+                    conn.style.backgroundColor = isFridayMode ? 'var(--friday-pink)' : 'var(--jarvis-blue)';
+                    
+                    setTimeout(() => {
+                        conn.style.opacity = '0.3';
+                        conn.style.backgroundColor = isFridayMode ? 'var(--friday-purple)' : 'var(--jarvis-blue)';
+                    }, 500);
+                });
+            }
+
+            // Show HUD response
+            function showResponse(text) {
+                responseText.textContent = text;
+                hudResponse.classList.add('show');
+                
+                setTimeout(() => {
+                    hudResponse.classList.remove('show');
+                }, 3000);
+            }
+
+            // Get time of day
+            function getTimeOfDay() {
+                const hour = new Date().getHours();
+                if (hour < 12) return 'morning';
+                if (hour < 18) return 'afternoon';
+                return 'evening';
+            }
+
+            // Handle text input
+            function handleTextInput() {
+                const text = chatInput.value.trim();
+                if (text) {
+                    addMessage(text, 'user');
+                    processCommand(text);
+                    chatInput.value = '';
+                }
+            }
+
+            // Setup event listeners
+            function setupEventListeners() {
+                fullVideoButton.addEventListener('click', toggleFullVideoMode);
+                closeFullVideoButton.addEventListener('click', toggleFullVideoMode);
+                environmentButton.addEventListener('click', toggleEnvironmentPanel);
+                biometricButton.addEventListener('click', toggleBiometricDisplay);
+                fridayButton.addEventListener('click', toggleFridayMode);
+                endCallButton.addEventListener('click', endCall);
+                sendButton.addEventListener('click', handleTextInput);
+                chatInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        handleTextInput();
+                    }
+                });
+
+                // Gesture area events
+                gestureArea.addEventListener('click', function() {
+                    if (isBiometricActive) {
+                        addMessage("Gesture detected: Click", 'jarvis');
+                        showResponse("Gesture command received");
+                    }
+                });
+                
+                gestureArea.addEventListener('mouseenter', function() {
+                    if (isBiometricActive) {
+                        gestureArea.style.borderStyle = 'solid';
+                        gestureArea.style.opacity = '1';
+                    }
+                });
+                
+                gestureArea.addEventListener('mouseleave', function() {
+                    if (isBiometricActive) {
+                        gestureArea.style.borderStyle = 'dashed';
+                        gestureArea.style.opacity = '0.7';
+                    }
+                });
+            }
+
+            // Start the initialization process
+            initializeSystem();
+        });
+    </script>
+</body>
+</html>
