@@ -3,8 +3,10 @@
  * This module handles communication with the J.A.R.V.I.S backend API
  */
 
-// API base URL
-const API_BASE_URL = 'http://localhost:12000';
+// Determine API base URL based on environment
+const API_BASE_URL = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')
+    ? 'http://localhost:12000'  // Local development
+    : window.location.origin + '/api';  // Production on Vercel
 
 // API endpoints
 const API = {

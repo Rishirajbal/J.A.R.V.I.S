@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -11,7 +12,8 @@ from api.environment import router as environment_router
 app = FastAPI(
     title="J.A.R.V.I.S API",
     description="Backend API for J.A.R.V.I.S AI Assistant",
-    version="1.0.0"
+    version="1.0.0",
+    root_path="/api" if os.environ.get("VERCEL") else ""
 )
 
 # Configure CORS
