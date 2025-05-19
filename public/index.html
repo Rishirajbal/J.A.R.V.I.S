@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.A.R.V.I.S / F.R.I.D.A.Y. Interface</title>
+    <!-- TensorFlow.js for object detection -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+    <!-- Face-api.js for face recognition -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <!-- Tesseract.js for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Main HUD Container -->
+        <div class="hud-container">
+            <!-- Left Panel -->
+            <div class="panel left-panel">
+                <div class="panel-header">INITIALIZING SYSTEMS...</div>
+                <div class="panel-content">
+                    <div class="ocr-status">Initializing OCR engine... (<span id="ocr-progress">45</span>%)</div>
+                    <div class="data-section">
+                        <h3>ENVIRONMENTAL DATA</h3>
+                        <div class="data-row">
+                            <div class="data-label">LOCATION:</div>
+                            <div class="data-value" id="location">--</div>
+                        </div>
+                        <div class="data-row">
+                            <div class="data-label">TEMPERATURE:</div>
+                            <div class="data-value" id="temperature">--</div>
+                        </div>
+                        <div class="data-row">
+                            <div class="data-label">WEATHER:</div>
+                            <div class="data-value" id="weather">--</div>
+                        </div>
+                        <div class="data-row">
+                            <div class="data-label">PRESSURE:</div>
+                            <div class="data-value" id="pressure">--</div>
+                        </div>
+                        <div class="data-row">
+                            <div class="data-label">WIND SPEED:</div>
+                            <div class="data-value" id="wind-speed">--</div>
+                        </div>
+                    </div>
+                    <div class="data-section">
+                        <h3>BIOMETRIC DATA</h3>
+                        <div class="data-row">
+                            <div class="data-label">HEART RATE:</div>
+                            <div class="data-value" id="heart-rate">--</div>
+                        </div>
+                        <div class="data-row">
+                            <div class="data-label">STRESS LEVEL:</div>
+                            <div class="data-value" id="stress-level">--</div>
+                        </div>
+                    </div>
+                    <div class="gesture-area">
+                        <h3>GESTURE CONTROL AREA</h3>
+                        <div class="gesture-indicator"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Panel -->
+            <div class="panel center-panel">
+                <div class="panel-header" id="ai-name">J.A.R.V.I.S. ADVANCED INTERFACE</div>
+                <div class="panel-content">
+                    <div class="status-bar">
+                        <div class="status-item">SYSTEMS ONLINE</div>
+                        <div class="status-item" id="current-time">20:09:51</div>
+                        <div class="status-item" id="power-status">POWER 100%</div>
+                    </div>
+                    <div class="camera-feed">
+                        <video id="video" autoplay muted></video>
+                        <canvas id="canvas"></canvas>
+                        <div class="camera-overlay"></div>
+                    </div>
+                    <div class="user-feed">
+                        <h3>USER FEED</h3>
+                        <div id="user-feed-content"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel -->
+            <div class="panel right-panel">
+                <div class="panel-header">SYSTEM STATUS</div>
+                <div class="panel-content">
+                    <div class="data-row">
+                        <div class="data-label">AI CORE:</div>
+                        <div class="data-value online">ONLINE</div>
+                    </div>
+                    <div class="data-row">
+                        <div class="data-label">VOICE RECOGNITION:</div>
+                        <div class="data-value online">ACTIVE</div>
+                    </div>
+                    <div class="data-row">
+                        <div class="data-label">OBJECT DETECTION:</div>
+                        <div class="data-value online">READY</div>
+                    </div>
+                    <div class="data-row">
+                        <div class="data-label">FACE RECOGNITION:</div>
+                        <div class="data-value loading">LOADING</div>
+                    </div>
+                    <div class="data-row">
+                        <div class="data-label">LAST UPDATE:</div>
+                        <div class="data-value" id="last-update">05-19-2025</div>
+                    </div>
+                    <div class="chat-container">
+                        <div class="chat-messages" id="chat-messages">
+                            <div class="message ai-message">
+                                <span class="message-sender">J.A.R.V.I.S.:</span> Systems initializing. Please wait...
+                            </div>
+                            <div class="message ai-message">
+                                <span class="message-sender">J.A.R.V.I.S.:</span> Could not access camera or microphone. Please check permissions.
+                            </div>
+                        </div>
+                        <div class="chat-input">
+                            <input type="text" id="user-input" placeholder="Type a message...">
+                            <button id="send-button">SEND</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toggle Button -->
+        <div class="toggle-container">
+            <button id="toggle-ai" class="toggle-button">×</button>
+        </div>
+
+        <!-- Voice Recognition Indicator -->
+        <div class="voice-indicator" id="voice-indicator">
+            <div class="voice-indicator-text">Initializing voice recognition...</div>
+            <div class="voice-waves">
+                <div class="voice-wave"></div>
+                <div class="voice-wave"></div>
+                <div class="voice-wave"></div>
+                <div class="voice-wave"></div>
+                <div class="voice-wave"></div>
+            </div>
+            <div class="voice-status">LISTENING...</div>
+            <div class="voice-transcript" id="voice-transcript">J.A.R.V.I.S.: Systems initializing</div>
+        </div>
+    </div>
+
+    <script src="/js/script.js"></script>
+</body>
+</html>
