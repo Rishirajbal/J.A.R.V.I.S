@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.A.R.V.I.S API Test</title>
+    <!-- J.A.R.V.I.S API Client -->
+    <script src="api.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            color: #00aaff;
+            text-align: center;
+        }
+        .test-section {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #00aaff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0088cc;
+        }
+        textarea {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+        }
+        .result {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            min-height: 100px;
+        }
+        .loading {
+            color: #888;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <h1>J.A.R.V.I.S API Test</h1>
+    
+    <div class="test-section">
+        <h2>Voice API</h2>
+        <div>
+            <h3>Text-to-Speech</h3>
+            <textarea id="tts-text" rows="3" placeholder="Enter text to convert to speech">Hello, I am JARVIS, your personal AI assistant.</textarea>
+            <div>
+                <button id="tts-button">Convert to Speech</button>
+                <button id="tts-base64-button">Get Base64 Audio</button>
+            </div>
+            <div class="result" id="tts-result"></div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Commands API</h2>
+        <div>
+            <h3>Process Command</h3>
+            <textarea id="command-text" rows="3" placeholder="Enter a command">What's the weather like today?</textarea>
+            <div>
+                <button id="command-button">Process Command</button>
+            </div>
+            <div class="result" id="command-result"></div>
+        </div>
+        
+        <div>
+            <h3>Chat Dialog</h3>
+            <textarea id="chat-text" rows="3" placeholder="Enter a message">Tell me about Iron Man.</textarea>
+            <div>
+                <button id="chat-button">Send Message</button>
+            </div>
+            <div class="result" id="chat-result"></div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Environment API</h2>
+        <div>
+            <h3>Weather</h3>
+            <div>
+                <button id="weather-button">Get Current Weather</button>
+            </div>
+            <div class="result" id="weather-result"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Helper function to show loading state
+        function showLoading(elementId) {
+            document.getElementById(elementId).innerHTML = '<span class="loading">Loading...</span>';
+        }
+        
+        // Helper function to show error
+        function showError(elementId, error) {
+            document.getElementById(elementId).innerHTML = `<span style="color: red;">Error: ${error.message}</span>`;
+        }
+        
+        // Text-to-Speech
+        document.getElementById('tts-button').addEventListener('click', async () => {
+            const text = document.getElementById('tts-text').value;
+            if (!text) return;
+            
+            showLoading('tts-result');
+            
+            try {
+                const audioBlob = await window.JARVIS_API.textToSpeech(text);
+                const audioUrl = URL.createObjectURL(audioBlob);
+                
+                const audioElement = document.createElement('audio');
+                audioElement.controls = true;
+                audioElement.src = audioUrl;
+                
+                const resultElement = document.getElementById('tts-result');
+                resultElement.innerHTML = '';
+                resultElement.appendChild(audioElement);
+            } catch (error) {
+                console.error('TTS error:', error);
+                showError('tts-result', error);
+            }
+        });
+        
+        // Text-to-Speech Base64
+        document.getElementById('tts-base64-button').addEventListener('click', async () => {
+            const text = document.getElementById('tts-text').value;
+            if (!text) return;
+            
+            showLoading('tts-result');
+            
+            try {
+                const response = await window.JARVIS_API.textToSpeechBase64(text);
+                
+                const audioElement = document.createElement('audio');
+                audioElement.controls = true;
+                audioElement.src = `data:audio/wav;base64,${response.audio_base64}`;
+                
+                const resultElement = document.getElementById('tts-result');
+                resultElement.innerHTML = '';
+                resultElement.appendChild(audioElement);
+            } catch (error) {
+                console.error('TTS Base64 error:', error);
+                showError('tts-result', error);
+            }
+        });
+        
+        // Process Command
+        document.getElementById('command-button').addEventListener('click', async () => {
+            const text = document.getElementById('command-text').value;
+            if (!text) return;
+            
+            showLoading('command-result');
+            
+            try {
+                const response = await window.JARVIS_API.processCommand(text);
+                document.getElementById('command-result').textContent = JSON.stringify(response, null, 2);
+            } catch (error) {
+                console.error('Command error:', error);
+                showError('command-result', error);
+            }
+        });
+        
+        // Chat Dialog
+        document.getElementById('chat-button').addEventListener('click', async () => {
+            const message = document.getElementById('chat-text').value;
+            if (!message) return;
+            
+            showLoading('chat-result');
+            
+            try {
+                const response = await window.JARVIS_API.chatDialog(message);
+                document.getElementById('chat-result').textContent = JSON.stringify(response, null, 2);
+            } catch (error) {
+                console.error('Chat error:', error);
+                showError('chat-result', error);
+            }
+        });
+        
+        // Weather
+        document.getElementById('weather-button').addEventListener('click', async () => {
+            showLoading('weather-result');
+            
+            try {
+                // Use New York coordinates as default
+                const lat = 40.7128;
+                const lon = -74.0060;
+                
+                const response = await window.JARVIS_API.getWeather(lat, lon);
+                document.getElementById('weather-result').textContent = JSON.stringify(response, null, 2);
+            } catch (error) {
+                console.error('Weather error:', error);
+                showError('weather-result', error);
+            }
+        });
+    </script>
+</body>
+</html>

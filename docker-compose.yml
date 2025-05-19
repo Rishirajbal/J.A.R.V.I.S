@@ -1,0 +1,14 @@
+version: '3'
+
+services:
+  jarvis:
+    build: .
+    ports:
+      - "12000:12000"  # Backend API
+      - "12001:12001"  # Frontend
+    volumes:
+      - ./.env:/app/backend/.env
+    restart: unless-stopped
+    environment:
+      - HOST=0.0.0.0
+      - PORT=12000
