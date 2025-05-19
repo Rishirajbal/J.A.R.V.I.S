@@ -1,0 +1,15 @@
+{
+  "name": "jarvis",
+  "version": "1.0.0",
+  "description": "J.A.R.V.I.S - Just A Rather Very Intelligent System",
+  "scripts": {
+    "dev": "bash run.sh",
+    "build": "echo 'No build step required'",
+    "start": "python -m http.server 12001 --directory MCU & cd backend && uvicorn main:app --host 0.0.0.0 --port 12000"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "author": "",
+  "license": "MIT"
+}
